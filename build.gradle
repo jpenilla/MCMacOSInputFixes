@@ -10,13 +10,13 @@ group = project.maven_group
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	mappings  loom.officialMojangMappings()
-	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	neoForge "net.neoforged:neoforge:21.0.152"
 }
 
 processResources {
 	inputs.property "version", project.version
 
-	filesMatching("fabric.mod.json") {
+	filesMatching("META-INF/neoforge.mods.toml") {
 		expand "version": project.version
 	}
 }
@@ -31,7 +31,7 @@ java {
 
 jar {
 	from("LICENSE") {
-		rename { "${it}_${project.archivesBaseName}"}
+		rename { "${it}_${project.base.archivesName.get()}"}
 	}
 }
 

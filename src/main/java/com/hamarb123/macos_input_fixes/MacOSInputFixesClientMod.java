@@ -1,13 +1,14 @@
 package com.hamarb123.macos_input_fixes;
 
 import java.io.IOException;
-import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.Util;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.common.Mod;
 
-public class MacOSInputFixesClientMod implements ClientModInitializer
+@Mod(value = "macos_input_fixes", dist = Dist.CLIENT)
+public class MacOSInputFixesClientMod
 {
-	@Override
-	public void onInitializeClient()
+	public MacOSInputFixesClientMod()
 	{
 		ModOptions.loadOptions();
 	}

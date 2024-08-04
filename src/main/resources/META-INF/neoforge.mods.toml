@@ -1,0 +1,31 @@
+modLoader = "javafml"
+loaderVersion = "[1,)"
+license = "MIT"
+issueTrackerURL = "https://github.com/hamarb123/MCMacOSInputFixes"
+showAsResourcePack = false
+
+[[mods]]
+modId = "macos_input_fixes"
+version = "${version}"
+displayName = "MacOS Input Fixes"
+displayURL = "https://github.com/hamarb123/MCMacOSInputFixes"
+authors = "hamarb123"
+description = "This mod fixes MC-59810 and MC-121772. It makes scrolling with shift work properly on macOS, left click + control = left click (instead of right click) and more fixes! See the full list of fixes on the site."
+displayTest = "IGNORE_ALL_VERSION"
+
+[[dependencies.macos_input_fixes]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.0,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.macos_input_fixes]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21,1.22)"
+ordering = "NONE"
+side = "BOTH"
+
+[[mixins]]
+config = "macos_input_fixes.mixins.json"
