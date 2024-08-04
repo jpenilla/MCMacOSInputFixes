@@ -1,11 +1,7 @@
 package com.hamarb123.macos_input_fixes.mixin;
 
-import net.minecraft.client.Keyboard;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.Mouse;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.util.Window;
 import org.lwjgl.glfw.GLFWNativeCocoa;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -14,34 +10,32 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.hamarb123.macos_input_fixes.Common;
 import com.hamarb123.macos_input_fixes.FabricReflectionHelper;
 import com.hamarb123.macos_input_fixes.MacOSInputFixesClientMod;
+import com.mojang.blaze3d.platform.Window;
+import net.minecraft.client.KeyboardHandler;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.MouseHandler;
+import net.minecraft.client.Options;
 
-@Mixin(MinecraftClient.class)
+@Mixin(Minecraft.class)
 public class MinecraftClientMixin
 {
-	@Shadow
-	private Window window;
-
-	@Shadow
-	private Mouse mouse;
-
-	@Shadow
-	private Keyboard keyboard;
-
-	@Shadow
-	private GameOptions options;
+	@Final @Shadow private Window window;
+	@Shadow @Final public KeyboardHandler keyboardHandler;
+	@Shadow @Final public MouseHandler mouseHandler;
+	@Final @Shadow public Options options;
 
 	private boolean runOnce = false;
 
 	//function that is called immediately after the window is created on both versions
-	@Inject(at = @At("HEAD"), method = "onWindowFocusChanged(Z)V", cancellable = true)
+	@Inject(at = @At("HEAD"), method = "setWindowActive(Z)V", cancellable = true)
 	private void onWindowFocusChanged(boolean focused, CallbackInfo info)
 	{
-		if (MinecraftClient.IS_SYSTEM_MAC)
+		if (Minecraft.ON_OSX)
 		{
 			if (!runOnce)
 			{
 				//register the native callback for scrolling
-				long glfwWindow = window.getHandle();
+				long glfwWindow = window.getWindow();
 				long cocoaWindow = GLFWNativeCocoa.glfwGetCocoaWindow(glfwWindow);
 				MacOSInputFixesClientMod.registerCallbacks(this::scrollCallback, this::keyCallback, cocoaWindow);
 				runOnce = true;
@@ -54,9 +48,7 @@ public class MinecraftClientMixin
 		//recieve the native scrolling callback & convert it into a scroll event
 
 		//determine if discrete scroll is enabled
-		boolean discreteScroll = FabricReflectionHelper.Try_SimpleOption() != null
-			? (boolean)(Boolean)FabricReflectionHelper.SimpleOption_getValue(FabricReflectionHelper.GameOptions_getDiscreteMouseScroll(options)) //1.19+
-			: FabricReflectionHelper.GameOptions_discreteMouseScroll(options); //1.14-1.18
+		boolean discreteScroll = (boolean)(Boolean)FabricReflectionHelper.SimpleOption_getValue(FabricReflectionHelper.GameOptions_getDiscreteMouseScroll(options)); //1.19+
 
 		//replace ungrouped values with grouped values if discrete scroll is enabled
 		if (discreteScroll)
@@ -66,7 +58,7 @@ public class MinecraftClientMixin
 		}
 
 		//use ungrouped values if not scrolling on hotbar
-		if (((MinecraftClient)(Object)this).getOverlay() != null || ((MinecraftClient)(Object)this).currentScreen != null || ((MinecraftClient)(Object)this).player == null)
+		if (((Minecraft)(Object)this).getOverlay() != null || ((Minecraft)(Object)this).screen != null || ((Minecraft)(Object)this).player == null)
 		{
 			horizontal = horizontalUngrouped;
 			vertical = verticalUngrouped;
@@ -86,7 +78,7 @@ public class MinecraftClientMixin
 		Common.setAllowedInputOSX(true);
 
 		//on 1.14 we need to use the window field, on 1.19 the field still exists
-		((MouseInvokerMixin)mouse).callOnMouseScroll(((MinecraftClientAccessor)MinecraftClient.getInstance()).getWindow().getHandle(), horizontal, vertical);
+		((MouseInvokerMixin)mouseHandler).callOnMouseScroll(((MinecraftClientAccessor)Minecraft.getInstance()).getWindow().getWindow(), horizontal, vertical);
 
 		//disable onMouseScroll
 		Common.setAllowedInputOSX(false);
@@ -98,20 +90,20 @@ public class MinecraftClientMixin
 		Common.setAllowedInputOSX2(true);
 
 		//on 1.14 we need to use the window field, on 1.19 the field still exists
-		keyboard.onKey(((MinecraftClientAccessor)MinecraftClient.getInstance()).getWindow().getHandle(), key, scancode, action, modifiers);
+		keyboardHandler.keyPress(((MinecraftClientAccessor)Minecraft.getInstance()).getWindow().getWindow(), key, scancode, action, modifiers);
 
 		//disable onKey
 		Common.setAllowedInputOSX2(false);
 	}
 
 	//dropping stack in game
-	@Inject(method = "handleInputEvents()V", at = @At("HEAD"))
+	@Inject(method = "handleKeybinds()V", at = @At("HEAD"))
 	private void keyPressed_hasControlDownBegin(CallbackInfo info)
 	{
 		//enable hasControlDown() injector
 		Common.setInjectHasControlDown(true);
 	}
-	@Inject(method = "handleInputEvents()V", at = @At("RETURN"))
+	@Inject(method = "handleKeybinds()V", at = @At("RETURN"))
 	private void keyPressed_hasControlDownEnd(CallbackInfo info)
 	{
 		//disable hasControlDown() injector

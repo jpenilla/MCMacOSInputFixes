@@ -5,28 +5,19 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.ParameterizedType;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
+import net.minecraft.client.OptionInstance;
 import org.apache.commons.io.IOUtils;
-import com.hamarb123.macos_input_fixes.FabricReflectionHelper.CyclingOptionSetterHelper;
-import com.hamarb123.macos_input_fixes.FabricReflectionHelper.ValueTextGetterHelper;
-import com.hamarb123.macos_input_fixes.mixin.MinecraftClientAccessor;
 import com.hamarb123.macos_input_fixes.mixin.gui.GameOptionsAccessor;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 
 @Environment(EnvType.CLIENT)
 public class ModOptions
@@ -88,110 +79,35 @@ public class ModOptions
 
 	//here's the implementation for creating the different interface elements:
 
-	private static Text createLiteralText(String value)
+	private static Component createLiteralText(String value)
 	{
-		if (FabricReflectionHelper.Has_Text_literal())
-		{
-			//1.19+
-			return FabricReflectionHelper.Text_literal(value);
-		}
-		else
-		{
-			//1.14-1.18
-			return FabricReflectionHelper.new_LiteralText(value);
-		}
+		return Component.literal(value);
 	}
 
 	@SuppressWarnings("unchecked")
-	private static Object doubleOption(String key, String prefix, double min, double max, float step, Supplier<Double> getter, Consumer<Double> setter, String tooltip)
+	private static OptionInstance<Double> doubleOption(String key, String prefix, double min, double max, float step, Supplier<Double> getter, Consumer<Double> setter, String tooltip)
 	{
 		try
 		{
-			if (FabricReflectionHelper.Try_DoubleOption() != null)
+			//1.19+
+			double step2 = (max - min) / step;
+			OptionInstance.CaptionBasedToString<Double> valueTextGetterImpl = (optionText, value) ->
 			{
-				//1.14-1.18
-				Constructor<?> ctorM;
-				boolean is117Plus = false;
-				int version = 1160;
-				if (tooltip == null || !FabricReflectionHelper.Has_new_DoubleOption_8())
-				{
-					ctorM = FabricReflectionHelper.Info_new_DoubleOption7();
-				}
-				else
-				{
-					ctorM = FabricReflectionHelper.Info_new_DoubleOption8();
-					is117Plus = true;
-					version = 1170;
-				}
-				Function<GameOptions, Double> _getter = (gameOptions) -> getter.get();
-				BiConsumer<GameOptions, Double> _setter = (gameOptions, value) ->
-				{
-					setter.accept(value);
-					saveOptions();
-				};
-				BiFunction<GameOptions, ?, ?> displayStringGetter;
-				if (((ParameterizedType)ctorM.getGenericParameterTypes()[6]).getActualTypeArguments()[2] == String.class)
-				{
-					//1.14-1.15
-					displayStringGetter = (gameOptions, doubleOption) -> prefix + ": " + getter.get();
-					version = 1140;
-				}
-				else
-				{
-					//1.16-1.18
-					displayStringGetter = (gameOptions, doubleOption) -> createLiteralText(prefix + ": " + getter.get());
-				}
-				if (tooltip == null)
-				{
-					return FabricReflectionHelper.new_DoubleOption(key, min, max, step, _getter, _setter, displayStringGetter);
-				}
-				else
-				{
-					Object tooltipObject = createTooltip(true, tooltip, version);
-					if (is117Plus)
-					{
-						return FabricReflectionHelper.new_DoubleOption(key, min, max, step, _getter, _setter, displayStringGetter, (Function<MinecraftClient, List<?>>)tooltipObject);
-					}
-					else
-					{
-						Object returnValue = FabricReflectionHelper.new_DoubleOption(key, min, max, step, _getter, _setter, displayStringGetter);
-						returnValue = writeTooltip(returnValue, tooltipObject, version);
-						return returnValue;
-					}
-				}
-			}
-			else
+				double result = Math.round(value * step2) * step + min;
+				return (Component)createLiteralText(prefix + ": " + result);
+			};
+
+			Double defaultValue = (getter.get() - min) / (max - min);
+
+			Consumer<Double> changeCallback = (value) ->
 			{
-				//1.19+
-				double step2 = (max - min) / step;
-				ValueTextGetterHelper<Double> valueTextGetterImpl = (optionText, value) ->
-				{
-					double result = Math.round(value * step2) * step + min;
-					return (Text)createLiteralText(prefix + ": " + result);
-				};
-				Object valueTextGetter = FabricReflectionHelper.convertToSimpleOption_ValueTextGetter(valueTextGetterImpl);
-
-				Double defaultValue = (getter.get() - min) / (max - min);
-
-				Consumer<Double> changeCallback = (value) ->
-				{
-					double result = Math.round(value * step2) * step + min;
-					setter.accept(result);
-					saveOptions();
-				};
-				if (FabricReflectionHelper.Try_SimpleOption_TooltipFactoryGetter() != null)
-				{
-					//1.19-1.19.2
-					Object tooltipParameter = createTooltip(true, tooltip, 1190);
-					return FabricReflectionHelper.new_SimpleOption_1(key, tooltipParameter, valueTextGetter, FabricReflectionHelper.SimpleOption_DoubleSliderCallbacks_INSTANCE(), defaultValue, changeCallback);
-				}
-				else
-				{
-					//1.19.3+
-					Object tooltipParameter = createTooltip(true, tooltip, 1193);
-					return FabricReflectionHelper.new_SimpleOption_2(key, tooltipParameter, valueTextGetter, FabricReflectionHelper.SimpleOption_DoubleSliderCallbacks_INSTANCE(), defaultValue, changeCallback);
-				}
-			}
+				double result = Math.round(value * step2) * step + min;
+				setter.accept(result);
+				saveOptions();
+			};
+			//1.19.3+
+			OptionInstance.TooltipSupplier<Double> tooltipParameter = createTooltip(true, tooltip, 1193);
+			return FabricReflectionHelper.new_SimpleOption_2(key, tooltipParameter, valueTextGetterImpl, OptionInstance.UnitDouble.INSTANCE, defaultValue, changeCallback);
 		}
 		catch (Throwable t)
 		{
@@ -199,94 +115,29 @@ public class ModOptions
 		}
 	}
 
-	private static Object booleanOption(String key, String prefix, Supplier<Boolean> getter, Consumer<Boolean> setter, String tooltip)
+	private static OptionInstance<Boolean> booleanOption(String key, String prefix, Supplier<Boolean> getter, Consumer<Boolean> setter, String tooltip)
 	{
 		try
 		{
-			if (FabricReflectionHelper.Try_CyclingOption() != null)
+			//1.19+
+			OptionInstance.CaptionBasedToString<Boolean> valueTextGetterImpl = (optionText, value) ->
 			{
-				//1.14-1.18
-				if (FabricReflectionHelper.Try_CyclingOption_Setter() != null)
-				{
-					//1.17-1.18
-					Function<GameOptions, Boolean> _getter = (gameOptions) -> getter.get();
-					CyclingOptionSetterHelper<Boolean> _setter = (gameOptions, option, value) ->
-					{
-						setter.accept(value);
-						saveOptions();
-					};
-					Object _setter2 = FabricReflectionHelper.convertToCyclingOption_Setter(_setter);
-					Object returnValue = FabricReflectionHelper.CyclingOption_create(key, createLiteralText(prefix + ": ON"), createLiteralText(prefix + ": OFF"), _getter, _setter2);
-					((OptionMixinHelper)returnValue).setOmitBuilderKeyText();
-					if (tooltip != null)
-					{
-						Object tooltipObject = createTooltip(false, tooltip, 1170);
-						returnValue = writeTooltip(returnValue, tooltipObject, 1170);
-					}
-					return returnValue;
-				}
-				else
-				{
-					//1.14-1.16
-					BiConsumer<GameOptions, Integer> _setter = (gameOptions, value) ->
-					{
-						setter.accept(!getter.get());
-						saveOptions();
-					};
-					BiFunction<GameOptions, ?, ?> displayStringGetter;
-					int version = 1160;
-					if (((ParameterizedType)FabricReflectionHelper.Info_new_CyclingOption3().getGenericParameterTypes()[2]).getActualTypeArguments()[2] == String.class)
-					{
-						//1.14-1.15
-						displayStringGetter = (gameOptions, booleanOption) -> prefix + (getter.get() ? ": ON" : ": OFF");
-						version = 1140;
-					}
-					else
-					{
-						//1.16
-						displayStringGetter = (gameOptions, booleanOption) -> createLiteralText(prefix + (getter.get() ? ": ON" : ": OFF"));
-					}
-					Object returnValue = FabricReflectionHelper.new_CyclingOption(key, _setter, displayStringGetter);
-					if (tooltip != null)
-					{
-						Object tooltipObject = createTooltip(false, tooltip, version);
-						returnValue = writeTooltip(returnValue, tooltipObject, version);
-					}
-					return returnValue;
-				}
-			}
-			else
+				return (Component)createLiteralText(prefix + ": " + (value ? "ON" : "OFF"));
+			};
+
+			Consumer<Boolean> changeCallback = (value) ->
 			{
-				//1.19+
-				ValueTextGetterHelper<Boolean> valueTextGetterImpl = (optionText, value) ->
-				{
-					return (Text)createLiteralText(prefix + ": " + (value ? "ON" : "OFF"));
-				};
-				Object valueTextGetter = FabricReflectionHelper.convertToSimpleOption_ValueTextGetter(valueTextGetterImpl);
+				setter.accept(value);
+				saveOptions();
+			};
 
-				Consumer<Boolean> changeCallback = (value) ->
-				{
-					setter.accept(value);
-					saveOptions();
-				};
+			OptionInstance<Boolean> returnValue;
+			//1.19.3+
+			OptionInstance.TooltipSupplier<Boolean> tooltipParameter = createTooltip(false, tooltip, 1193);
+			returnValue = FabricReflectionHelper.new_SimpleOption_2(key, tooltipParameter, valueTextGetterImpl,  OptionInstance.BOOLEAN_VALUES, getter.get(), changeCallback);
 
-				Object returnValue;
-				if (FabricReflectionHelper.Try_SimpleOption_TooltipFactoryGetter() != null)
-				{
-					//1.19-1.19.2
-					Object tooltipParameter = createTooltip(false, tooltip, 1190);
-					returnValue = FabricReflectionHelper.new_SimpleOption_1(key, tooltipParameter, valueTextGetter, FabricReflectionHelper.SimpleOption_BOOLEAN(), getter.get(), changeCallback);
-				}
-				else
-				{
-					//1.19.3+
-					Object tooltipParameter = createTooltip(false, tooltip, 1193);
-					returnValue = FabricReflectionHelper.new_SimpleOption_2(key, tooltipParameter, valueTextGetter, FabricReflectionHelper.SimpleOption_BOOLEAN(), getter.get(), changeCallback);
-				}
-
-				((OptionMixinHelper)returnValue).setOmitBuilderKeyText();
-				return returnValue;
-			}
+			((OptionMixinHelper) (Object) returnValue).setOmitBuilderKeyText();
+			return returnValue;
 		}
 		catch (Throwable t)
 		{
@@ -296,7 +147,7 @@ public class ModOptions
 
 	//there doesn't seem to be a way to do tooltips on 1.14 and 1.15, so for now we won't
 
-	private static Object createTooltip(boolean isDouble, String tooltip, int version) throws Throwable
+	private static <T> OptionInstance.TooltipSupplier<T> createTooltip(boolean isDouble, String tooltip, int version) throws Throwable
 	{
 		//version is in the following format: 1.19.3 = 1193
 		//rounded down to what we know (e.g. 1.16.5 may be just 1160, or 1.15 may be just 1140)
@@ -307,78 +158,7 @@ public class ModOptions
 			return tooltip == null ? FabricReflectionHelper.SimpleOption_emptyTooltip_2() : FabricReflectionHelper.SimpleOption_constantTooltip_2(createLiteralText(tooltip));
 		}
 
-		if (version >= 1190)
-		{
-			//1.19-1.19.2
-			return tooltip == null ? FabricReflectionHelper.SimpleOption_emptyTooltip_1() : FabricReflectionHelper.SimpleOption_constantTooltip_1(createLiteralText(tooltip));
-		}
-
-		if (version >= 1170)
-		{
-			//1.17-1.18
-			ArrayList<Object> tooltipList = new ArrayList<>();
-			String[] strings = tooltip.split("\\n");
-			for (String str : strings)
-			{
-				for (String str2 : splitTooltipLine(str))
-				{
-					tooltipList.add(FabricReflectionHelper.OrderedText_styledForwardsVisitedString(str2, FabricReflectionHelper.Style_EMPTY()));
-				}
-			}
-			Function<?, ?> tooltipFunc = (Object o) -> tooltipList;
-
-			if (isDouble) return tooltipFunc;
-
-			Object tooltipFunc2 = FabricReflectionHelper.convertToCyclingButtonWidget_TooltipFactory(tooltipFunc);
-			Function<?, ?> tooltips = (MinecraftClient client) -> tooltipFunc2;
-			return tooltips;
-		}
-
-		if (version >= 1160)
-		{
-			//1.16
-			if (FabricReflectionHelper.Try_OrderedText() != null)
-			{
-				//1.16.2-1.16.5
-				String[] strings = tooltip.split("\\n");
-				ArrayList<Object> tooltipList = new ArrayList<>();
-				for (String str : strings)
-				{
-					for (String str2 : splitTooltipLine(str))
-					{
-						tooltipList.add(FabricReflectionHelper.OrderedText_styledForwardsVisitedString(str2, FabricReflectionHelper.Style_EMPTY()));
-					}
-				}
-				return tooltipList;
-			}
-			else
-			{
-				//1.16-1.16.1
-				String[] strings = tooltip.split("\\n");
-				ArrayList<Object> tooltipList = new ArrayList<>();
-				for (String str : strings)
-				{
-					for (String str2 : splitTooltipLine(str))
-					{
-						tooltipList.add(FabricReflectionHelper.StringVisitable_styled(str2, FabricReflectionHelper.Style_EMPTY()));
-					}
-				}
-				return tooltipList;
-			}
-		}
-
 		return null;
-	}
-
-	private static List<String> splitTooltipLine(String line) throws Throwable
-	{
-		List<?> listVisitable = FabricReflectionHelper.TextHandler_wrapLines(FabricReflectionHelper.TextRenderer_getTextHandler(((MinecraftClientAccessor)MinecraftClient.getInstance()).getTextRenderer()), line, 200, FabricReflectionHelper.Style_EMPTY());
-		ArrayList<String> resultList = new ArrayList<>();
-		for (Object o : listVisitable)
-		{
-			resultList.add(FabricReflectionHelper.StringVisitable_getString(o));
-		}
-		return resultList;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -393,20 +173,6 @@ public class ModOptions
 			throw new RuntimeException("writeTooltip is not implemented for 1.19+");
 		}
 
-		if (version >= 1170)
-		{
-			//1.17-1.18
-			//runs on CyclingOption only
-			return FabricReflectionHelper.CyclingOption_tooltip(option, (Function<MinecraftClient, ?>)tooltipObject);
-		}
-
-		if (version >= 1160)
-		{
-			//1.16
-			FabricReflectionHelper.Option_setTooltip(option, (List<?>)tooltipObject);
-			return option;
-		}
-
 		return option;
 	}
 
@@ -417,7 +183,7 @@ public class ModOptions
 	public static Object[] getModOptions()
 	{
 		loadInterface(); //load the elements if they are not loaded yet
-		if (MinecraftClient.IS_SYSTEM_MAC)
+		if (Minecraft.ON_OSX)
 		{
 			//on macOS show reverse scrolling, reverse hotbar scrolling, trackpad sensitivity, momentum scrolling, interface smooth scroll options, disable ctrl+click fix
 			Object[] arr = new Object[6];
@@ -447,7 +213,7 @@ public class ModOptions
 		try
 		{
 			//this is only used on macOS, so only load it here so we don't accidentally call any of these on other platforms
-			if (MinecraftClient.IS_SYSTEM_MAC)
+			if (Minecraft.ON_OSX)
 			{
 				TRACKPAD_SENSITIVITY = doubleOption(
 					"options.macos_input_fixes.trackpad_sensitivity",
@@ -509,7 +275,7 @@ public class ModOptions
 	public static void loadOptions()
 	{
 		//load options similarly to how minecraft does
-		optionsFile = new File(MinecraftClient.getInstance().runDirectory, "options_macos_input_fixes.txt");
+		optionsFile = new File(Minecraft.getInstance().gameDirectory, "options_macos_input_fixes.txt");
 		try
 		{
 			if (!optionsFile.exists())
@@ -517,7 +283,7 @@ public class ModOptions
 				return;
 			}
 			List<String> lines = IOUtils.readLines(new FileInputStream(optionsFile), StandardCharsets.UTF_8); //split by lines
-			NbtCompound compoundTag = new NbtCompound();
+			CompoundTag compoundTag = new CompoundTag();
 			for (String line : lines) //read the lines into a tag
 			{
 				try
