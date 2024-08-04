@@ -102,7 +102,7 @@ public class FabricReflectionHelper {
 					String.class,
 					OptionInstance.TooltipSupplier.class,
 					OptionInstance.CaptionBasedToString.class,
-					Class.forName("net.minecraft.client.OptionInstance.ValueSet"),
+					Class.forName("net.minecraft.client.OptionInstance$ValueSet"),
 					Object.class,
 					Consumer.class
 			).newInstance(key, tooltipFactory, valueTextGetter, valueSet, defaultValue, changeCallback);

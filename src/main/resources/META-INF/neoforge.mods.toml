@@ -1,6 +1,6 @@
 modLoader = "javafml"
 loaderVersion = "[1,)"
-license = "MIT"
+license = "BSD-3-Clause"
 issueTrackerURL = "https://github.com/hamarb123/MCMacOSInputFixes"
 showAsResourcePack = false
 
